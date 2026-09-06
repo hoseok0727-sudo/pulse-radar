@@ -123,7 +123,15 @@ fieldset{padding:0;border:0}
 .count{font-size:12px;color:var(--muted);margin:10px 0 20px}
 dialog{max-width:800px;width:calc(100% - 32px);max-height:90vh;border:1px solid var(--line);border-radius:18px;padding:42px;background:var(--paper);color:var(--ink);box-shadow:0 20px 80px #05091640}
 dialog::backdrop{background:#080c166b;backdrop-filter:blur(3px)}
-.dialog-close{position:absolute;right:12px;top:8px;font-size:28px;padding:0 10px}
+.dialog-close{position:sticky;float:right;top:0;right:0;z-index:2;font-size:28px;padding:0 10px;background:var(--paper);box-shadow:0 0 0 5px var(--paper)}
+dialog{overscroll-behavior:contain}
+.detail h1{word-break:keep-all;overflow-wrap:anywhere;text-wrap:pretty}
+.collection-context,.more-sources{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.collection-context summary,.more-sources summary{cursor:pointer;padding:8px 0;line-height:1.7}
+html:has(dialog[open]){overflow:hidden}
+.empty-actions{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+.library-count{display:inline-block;min-width:1.4em;margin-left:5px;font-variant-numeric:tabular-nums}
+#preferences-draft-status{min-height:1.8em;color:var(--accent-strong)}
 .detail h1{font-size:28px;line-height:1.55;letter-spacing:-.9px;margin:18px 0}
 .detail .lead{font-size:17px;line-height:1.95}
 .detail h2{font-size:15px;margin:27px 0 12px}
