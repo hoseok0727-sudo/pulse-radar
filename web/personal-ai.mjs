@@ -1,6 +1,7 @@
+import {CATEGORY_KEYS,REGION_KEYS} from './catalog.mjs';
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const MAX_PAYLOAD_CHARS = 42000;
-const categoryKeys = new Set(['finance','technology','policy','society','world','science','culture','sports']);
+const categoryKeys = new Set(CATEGORY_KEYS);
 const arr = value => Array.isArray(value) ? value : [];
 const text = (value, limit=240) => typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, limit) : '';
 const localized = (value, locale, limit) => text(typeof value === 'string' ? value : value?.[locale] || value?.ko, limit);
@@ -35,7 +36,7 @@ export function buildPersonalPayload(exported={}, currentBriefing=null) {
   }
   const readHistory = arr(exported.feedback).filter(f=>f?.kind === 'read' && f.value !== false).sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)).slice(0,20).map(f=>({storyId:text(f.topicId,100),readAt:date(f.updatedAt)})).filter(f=>f.storyId);
   const saved = arr(exported.bookmarks).filter(b=>['save','follow'].includes(b?.kind)).slice(0,20).map(b=>({storyId:text(b.topicId || b.snapshot?.topicId,100),kind:b.kind})).filter(b=>b.storyId);
-  const payload={schemaVersion:1,language:locale,interests:{categories:arr(prefs.categories).filter(k=>categoryKeys.has(k)).slice(0,8),keywords:list(prefs.keywords),excludedKeywords:list(prefs.exclude),region:prefs.region === 'world'?'world':'korea'},readHistory,saved,stories};
+  const payload={schemaVersion:1,language:locale,interests:{categories:arr(prefs.categories).filter(k=>categoryKeys.has(k)).slice(0,CATEGORY_KEYS.length),keywords:list(prefs.keywords),excludedKeywords:list(prefs.exclude),region:REGION_KEYS.includes(prefs.region)?prefs.region:'korea'},readHistory,saved,stories};
   while(payload.stories.length>1&&JSON.stringify(payload).length>MAX_PAYLOAD_CHARS)payload.stories.pop();
   return payload;
 }

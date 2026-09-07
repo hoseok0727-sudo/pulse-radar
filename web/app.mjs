@@ -1,3 +1,4 @@
+import {CATEGORIES} from './catalog.mjs';
 import {createExtension} from './access.mjs';
 import {createViews} from './views.mjs';
 import {request,requestExplorePages,download,isPublicSite} from './api.mjs';
@@ -5,7 +6,7 @@ import {mountPersonalAI} from './personal-ai.mjs';
 let disposePersonalAI=null;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={preferences:{locale:'ko',theme:'light',region:'korea',categories:[],keywords:[],exclude:[]},user:null,tab:'today',period:'day',category:'all',q:'',page:1,radar:false,libraryKind:'save',expanded:false,stories:new Map(),bookmarks:[],feedback:[],hidden:[],version:0};
-const cat={finance:['경제·금융','Economy'],technology:['산업·기술','Technology'],policy:['정책','Policy'],society:['사회','Society'],world:['세계','World'],science:['과학·환경','Science'],culture:['문화','Culture'],sports:['스포츠','Sports']};
+const cat=CATEGORIES;
 const tabs={today:['오늘의 브리핑','Today'],explore:['이야기 탐색','Explore'],library:['내 보관함','Library'],history:['브리핑 기록','History'],settings:['관심사·설정','Settings']};
 const tr=(ko,en)=>state.preferences.locale==='en'?en:ko;
 const storyTitle=s=>state.preferences.locale==='en'?(s.titleEn||s.title):s.title;

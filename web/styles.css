@@ -325,3 +325,6 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
   #personal-briefing-region>.page-heading{padding-top:26px}
   #personal-briefing-region>.page-heading h2{font-size:24px;line-height:1.55}
 }
+
+/* Keep complete Korean words together in narrow reader headings. */
+.page-heading h1,.page-heading h2{word-break:keep-all;overflow-wrap:anywhere}
