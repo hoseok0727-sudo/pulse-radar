@@ -40,6 +40,12 @@ function cleanSnapshot(value){
   if(!value||!dateString(value.generatedAt))return null;
   return {id:string(value.id,100),scope:string(value.scope,50),generatedAt:value.generatedAt,baselineAt:dateString(value.baselineAt),items:(Array.isArray(value.items)?value.items:[]).slice(0,6).map(cleanStory).filter(Boolean),preferences:prefs(value.preferences),total:Math.max(0,Number(value.total)||0),meta:{mode:'published',fetchedAt:dateString(value.meta?.fetchedAt),collection:'published-snapshot'},fingerprint:string(value.fingerprint,100)};
 }
+function briefingIdentity(value){
+  // Article fingerprints alone miss editorial corrections. Preserve the text
+  // and sources the reader saw, without display settings or ranking scores.
+  const content=value.items.map(item=>{const {rawScore,...snapshot}=cleanStory(item);return snapshot;}),p=value.preferences;
+  return signature([value.scope,content,{categories:p.categories,keywords:p.keywords,exclude:p.exclude,personalization:p.personalization},kstDate(time(value.generatedAt))]);
+}
 function cleanState(value){
   const result=emptyState();if(!value||value.schemaVersion!==1)return result;result.preferences=prefs(value.preferences);
   result.bookmarks=(Array.isArray(value.bookmarks)?value.bookmarks:[]).slice(0,300).map(b=>({topicId:string(b?.topicId,200),kind:b?.kind,snapshot:cleanStory(b?.snapshot),createdAt:dateString(b?.createdAt)})).filter(b=>['save','follow'].includes(b.kind)&&b.snapshot&&b.topicId===b.snapshot.topicId&&b.createdAt);
@@ -97,8 +103,8 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
     const duration=({day:1,week:7,month:30}[scope.period]||1)*DAY,p=personal.preferences,active=personalized&&p.personalization!==false;
     return publication.stories.filter(s=>!s.region||s.region===scope.region).filter(s=>{const at=time(s.publishedAt);return Number.isFinite(at)&&at<=Number(now())&&at>=Number(now())-duration;}).filter(s=>!p.exclude.some(k=>storyMatches(s,k))).map(s=>decorate(s,personal,{personalized,baseline,baselineAt})).filter(s=>!s.hidden).filter(s=>!active||!p.categories.length&&!p.keywords.length||s.followed||p.categories.includes(s.category)||s.matchedKeywords.length);
   }
-  function ranked(stories,personal){
-    const active=personal.preferences.personalization!==false;
+  function ranked(stories,personal,{personalized=true}={}){
+    const active=personalized&&personal.preferences.personalization!==false;
     const score=s=>(active?(s.followed?48:s.matchedKeywords.length?40:personal.preferences.categories.includes(s.category)?18:0)+(s.read?-45:0)+(s.useful?5:0):0)+(s.evidence==='source-reviewed'?8:0)+Math.max(0,18-Math.max(0,(Number(now())-time(s.publishedAt))/3600000)*.6)+Math.min(s.sourceCount,5)*3+s.rawScore*.2;
     const remaining=[...stories].sort((a,b)=>score(b)-score(a)||a.topicId.localeCompare(b.topicId)),result=[],categories=new Map(),publishers=new Map(),keywords=new Map();
     const adjusted=s=>score(s)-(categories.get(s.category)||0)*16-(publishers.get(s.sources[0])||0)*8-Math.max(0,...s.matchedKeywords.map(k=>keywords.get(k)||0))*12;
@@ -112,8 +118,8 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
     // A failed/stale refresh cannot overwrite the last successful reading baseline.
     if(metadata.mode==='published'&&body.items.length){
       personal.visits[key]={startedAt:fresh?iso():previous.startedAt,currentAt:iso(),baselineAt,baseline,current:body.items};
-      const identity=signature([key,body.items.map(s=>[s.topicId,s.fingerprint]),{categories:personal.preferences.categories,keywords:personal.preferences.keywords,exclude:personal.preferences.exclude,personalization:personal.preferences.personalization},kstDate(Number(now()))]);
-      const existing=personal.briefings.find(b=>b.fingerprint===identity);body.id=existing?.id||'briefing-'+identity;
+      const identity=briefingIdentity(body);
+      const existing=personal.briefings.find(b=>b.fingerprint===identity||briefingIdentity(b)===identity);body.id=existing?.id||'briefing-'+identity;
       if(!existing)personal.briefings.unshift({...body,id:body.id,fingerprint:identity});personal.briefings=personal.briefings.slice(0,90);save(personal);body.meta.storage=storageStatus();
     }
     return body;
@@ -134,7 +140,7 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
     if(verb==='GET'&&route==='/api/v2/explore'){
       const publication=await published(),q=normalize(url.searchParams.get('q')||'').slice(0,100),category=url.searchParams.get('category');
       personal=read();const metadata={...meta(publication,q?[q]:[]),...scope};
-      let stories=ranked(candidates(publication,personal,scope,{personalized:false}),personal);if(q)stories=stories.filter(s=>storyMatches(s,q));if(category&&category!=='all')stories=stories.filter(s=>s.category===category);
+      let stories=ranked(candidates(publication,personal,scope,{personalized:false}),personal,{personalized:false});if(q)stories=stories.filter(s=>storyMatches(s,q));if(category&&category!=='all')stories=stories.filter(s=>s.category===category);
       if(q)metadata.interestCoverage=coverage([q],stories,metadata);const page=Math.max(1,Math.min(100,Math.floor(Number(url.searchParams.get('page'))||1)));
       return {items:stories.slice((page-1)*12,page*12),total:stories.length,page,hasMore:page*12<stories.length,meta:metadata};
     }
@@ -144,7 +150,7 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
       // Loading can yield to another action or browser tab. Mutate the latest
       // local state so a slow publication request cannot restore deleted data.
       personal=read();const story=baseStory(String(body.topicId),personal);if(!story)throw fail('이야기를 찾지 못했습니다.',404);const key=body.kind==='save'||body.kind==='follow'?'bookmarks':'feedback',rows=personal[key],index=rows.findIndex(v=>sameStory(v,story.topicId)&&v.kind===body.kind);
-      if(!body.value){if(index>=0)rows.splice(index,1);}else if(key==='bookmarks'){if(index<0){if(rows.length>=300)throw fail('보관함은 최대 300개입니다.');rows.unshift({topicId:story.topicId,kind:body.kind,snapshot:story,createdAt:iso()});}}else{const mark={topicId:story.topicId,kind:body.kind,fingerprint:story.fingerprint,updatedAt:iso(),snapshot:story};if(index>=0)rows[index]=mark;else rows.unshift(mark);}save(personal);return {story:decorate(story,personal),storage:storageStatus()};
+      if(!body.value){if(index>=0)rows.splice(index,1);}else if(key==='bookmarks'){if(index<0){if(rows.length>=300)throw fail('보관함은 최대 300개입니다.');rows.unshift({topicId:story.topicId,kind:body.kind,snapshot:story,createdAt:iso()});}}else{const mark={topicId:story.topicId,kind:body.kind,fingerprint:story.fingerprint,updatedAt:iso(),snapshot:story};if(index>=0)rows.splice(index,1);rows.unshift(mark);}save(personal);return {story:decorate(story,personal),storage:storageStatus()};
     }
     if(verb==='GET'&&route==='/api/v2/library'){await published().catch(()=>{});personal=read();return {items:personal.bookmarks.map(b=>{const current=publishedStory(b.snapshot);return {...copy(b),story:decorate(current||b.snapshot,personal,{baseline:[b.snapshot],baselineAt:b.createdAt}),archived:!current};})};}
     if(verb==='GET'&&route==='/api/v2/history'){const q=(url.searchParams.get('q')||'').toLowerCase();return copy({items:personal.briefings.filter(b=>!q||JSON.stringify(b).toLowerCase().includes(q))});}

@@ -7,3 +7,16 @@ export async function request(path,{method='GET',body,signal}={}) {
   }catch(e){if(e.name==='AbortError')throw new Error('응답이 늦어지고 있습니다. 잠시 뒤 다시 시도해 주세요.');throw e}finally{clearTimeout(timer)}
 }
 export function download(name,value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+
+// Refresh the entire expanded list after a reading action, rather than replacing
+// it with only the last page. Stop early if hiding a story shrinks the result.
+export async function requestExplorePages(query,send=request){
+  const params=new URLSearchParams(query),through=Math.max(1,Math.min(100,Math.floor(Number(params.get('page'))||1)));
+  const items=new Map();let result;
+  for(let page=1;page<=through;page++){
+    params.set('page',page);result=await send('/api/v2/explore?'+params);
+    for(const story of result.items)items.set(story.topicId,story);
+    if(!result.hasMore)break;
+  }
+  return {...result,items:[...items.values()]};
+}

@@ -1,6 +1,6 @@
 import {createExtension} from './access.mjs';
 import {createViews} from './views.mjs';
-import {request,download,isPublicSite} from './api.mjs';
+import {request,requestExplorePages,download,isPublicSite} from './api.mjs';
 import {mountPersonalAI} from './personal-ai.mjs';
 let disposePersonalAI=null;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -56,21 +56,45 @@ async function loadHome(version){
   if(version===state.version)$('#main').setAttribute('aria-busy','false');
 }
 async function load({keep=false}={}){capturePreferenceDraft();disposePersonalAI?.();disposePersonalAI=null;const version=++state.version;state.tab=tabs[location.hash.slice(1)]?location.hash.slice(1):'today';if(location.hash&&location.hash!=='#main'&&!tabs[location.hash.slice(1)])history.replaceState(null,'','#today');shell();$('#main').setAttribute('aria-busy','true');const more=$('#load-more');if(more)more.disabled=true;if(state.tab==='today')return loadHome(version);if(!keep)$('#main').innerHTML=loader();try{let html;
-  if(state.tab==='explore'){const q=scope();q.set('q',state.q);q.set('category',state.category);q.set('page',state.page);const data=await request('/api/v2/explore?'+q);if(version!==state.version||q.get('q')!==state.q)return;html=renderExplore(data);}
+  if(state.tab==='explore'){const q=scope();q.set('q',state.q);q.set('category',state.category);q.set('page',state.page);const data=await requestExplorePages(q);if(version!==state.version||q.get('q')!==state.q)return;state.page=data.page;html=renderExplore(data);}
   else if(state.tab==='library'){const data=await request('/api/v2/library');if(version!==state.version)return;html=renderLibrary(data);}
   else if(state.tab==='history'){const data=await request('/api/v2/history');if(version!==state.version)return;html=renderHistory(data);}
   else if(extension?.handles(state.tab))html=await extension.render();
   else html=renderSettings();if(version!==state.version)return;$('#main').innerHTML=html;$('#main').setAttribute('aria-busy','false');if(state.tab==='settings')disposePersonalAI=mountPersonalAI($('#personal-ai-settings'),{request,tr});
 }catch(e){if(version!==state.version)return;$('#main').setAttribute('aria-busy','false');if(more)more.disabled=false;if(keep)toast(e.message);else $('#main').innerHTML=empty(tr('지금은 연결이 원활하지 않아요.','The connection needs a moment.'),e.message,`<button id="retry">${tr('다시 시도','Try again')}</button>`);}}
 async function sync(){const next=await request('/api/v2/state');Object.assign(state,next);shell();}
-async function action(button,kind,id,value){button.disabled=true;try{const result=await request('/api/v2/action',{method:'POST',body:{topicId:id,kind,value}});remember([result.story]);await sync();if($('#dialog').open&&kind!=='hide')await openStory(id);else if(kind==='hide')$('#dialog').close();await load({keep:true});toast(kind==='hide'?tr('다음 브리핑에서 빼둘게요. 설정에서 되돌릴 수 있어요.','Hidden. You can restore it in Settings.'):tr('기억해 두었습니다.','Saved.'));broadcast();}catch(e){toast(e.message)}finally{button.disabled=false}}
+async function action(button,kind,id,value){
+  const version=state.version,tab=state.tab,dialog=$('#dialog'),inDialog=dialog.open;
+  const dialogScroll=dialog.scrollTop,storyElement=button.closest('.story'),storyTop=storyElement?.getBoundingClientRect().top;
+  const expandedDaily=[...document.querySelectorAll('.digest-context')].map((node,index)=>node.open?index:-1).filter(index=>index>=0);
+  button.disabled=true;
+  try{
+    const result=await request('/api/v2/action',{method:'POST',body:{topicId:id,kind,value}});remember([result.story]);await sync();
+    if(version===state.version&&tab===state.tab){
+      if(inDialog&&dialog.open&&kind!=='hide')await openStory(id);else if(kind==='hide')dialog.close();
+      const reloadVersion=state.version+1;await load({keep:true});
+      if(tab===state.tab&&state.version===reloadVersion){
+        document.querySelectorAll('.digest-context').forEach((node,index)=>{node.open=expandedDaily.includes(index)});
+        const area=inDialog&&dialog.open?dialog:$('#main');
+        const replacement=[...area.querySelectorAll('button')].find(node=>node.dataset.id===id&&node.dataset.action===kind||button.dataset.unhide&&node.dataset.unhide===id);
+        if(inDialog&&dialog.open)dialog.scrollTop=dialogScroll;
+        else if(storyTop!==undefined){const nextStory=[...document.querySelectorAll('.story')].find(node=>node.dataset.story===id);if(nextStory)window.scrollBy({top:nextStory.getBoundingClientRect().top-storyTop,behavior:'instant'});}
+        if(replacement)replacement.focus({preventScroll:true});else if(document.activeElement===document.body)$('#main').focus({preventScroll:true});
+      }
+    }
+    toast(kind==='hide'?tr('다음 브리핑에서 빼둘게요. 설정에서 되돌릴 수 있어요.','Hidden. You can restore it in Settings.'):tr('기억해 두었습니다.','Saved.'));broadcast();
+  }catch(e){toast(e.message)}finally{button.disabled=false}
+}
 function confirmReset(all){openDialog(`<h2>${tr(all?'관심사와 보관함까지 삭제할까요?':'읽음과 피드백을 초기화할까요?',all?'Delete all your local data?':'Reset your reading memory?')}</h2><p>${tr(all?'관심사, 보관함, 브리핑 기록, 피드백이 삭제됩니다.':'읽음, 피드백, 브리핑 기록을 지웁니다. 관심사와 보관함은 남습니다.',all?'This deletes preferences, library, briefings and feedback.':'This deletes reading feedback and briefing history. Interests and library remain.')}</p><button class="danger" data-confirm-reset="${all?'all':'memory'}">${tr('삭제하기','Delete')}</button>`)}
 function auth(){location.hash='settings';}
 const channel='BroadcastChannel' in window?new BroadcastChannel('pulse-radar-v2'):null;
 function broadcast(){channel?.postMessage('changed')}
 if(channel)channel.onmessage=async()=>{await sync();if(!$('#dialog').open&&state.tab!=='settings')await load({keep:true})};
 window.addEventListener('hashchange',async()=>{if(location.hash==='#main'){$('#main').focus();return}clearTimeout(searchTimer);const target=location.hash.slice(1),changed=target!==state.tab;state.page=1;await load();if(changed&&state.tab===target){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});}});
-$('#dialog').addEventListener('close',()=>{if(dialogTrigger?.isConnected)dialogTrigger.focus();else $('#main').focus({preventScroll:true});});
+$('#dialog').addEventListener('close',()=>{
+  const restored=dialogTrigger?.isConnected?dialogTrigger:[...$('#main').querySelectorAll('button')].find(node=>dialogTrigger?.dataset.open&&node.dataset.open===dialogTrigger.dataset.open||dialogTrigger?.dataset.history&&node.dataset.history===dialogTrigger.dataset.history||dialogTrigger?.id&&node.id===dialogTrigger.id);
+  (restored||$('#main')).focus({preventScroll:true});
+});
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
@@ -85,6 +109,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   switch(b.id){
     case 'daily-retry':case 'daily-reload':return loadDaily();
     case 'retry':return load();
+    case 'explore-week':state.period='week';state.page=1;await load({keep:true});$('#period')?.focus({preventScroll:true});return;
     case 'account':if(isPublicSite){location.hash='settings';return;}return auth();
     case 'expand':state.expanded=true;$('#personal-briefing-region').innerHTML=renderPersonal(state.briefing);return;
     case 'radar-toggle':state.radar=!state.radar;$('#main').innerHTML=renderExplore(state.explore);return;

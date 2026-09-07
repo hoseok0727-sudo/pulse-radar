@@ -169,6 +169,11 @@ export function mountPersonalAI(element,{request,tr=(ko)=>ko,fetchImpl=globalThi
         find('[data-personal-ai-consent]').checked=false;
         showStatus(tr('이 화면에서 사용할 준비가 됐어요. 아직 API에 요청을 보내지 않았습니다.','Ready for this screen. No API request has been sent yet.'));
       } else if(action==='preview') {
+        // A replacement preview must invalidate the previous consent, including
+        // when the new local-data request fails or is cancelled.
+        payload=null;find('[data-personal-ai-consent]').checked=false;
+        find('.personal-ai-payload').textContent='';find('.personal-ai-preview').hidden=true;
+        find('.personal-ai-answer').textContent='';find('.personal-ai-result').hidden=true;
         busy=true;controls();showStatus(tr('내가 보낼 기록을 준비하고 있어요.','Preparing your preview.'));
         let exported;try{exported=await request('/api/v2/export');}catch{throw failure('local_data_failed');}
         if(disposed||version!==operation)return;
