@@ -230,6 +230,18 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
 .digest-controls label{width:100%;font-size:12px;color:var(--muted)}
 .digest-controls select{width:180px;font-size:13px;padding:9px 10px;min-height:42px}
 .digest-controls button{font-size:24px;line-height:1;padding:7px;min-width:38px}
+.digest-navigation{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-8px 0 14px}
+.digest-pagination{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.digest-navigation button{min-height:44px;padding:9px 12px;font-size:12px;font-weight:550}
+.digest-navigation button:disabled{opacity:.4;cursor:default}
+.digest-navigation #daily-copy{color:var(--accent-strong)}
+.digest-impact{margin-top:17px;padding:13px 15px;background:var(--tint);border-left:2px solid var(--accent);border-radius:0 10px 10px 0}
+.digest-impact h4{margin:0 0 5px;font-size:11px;font-weight:750;color:var(--accent-strong)}
+.digest-impact p{margin:0;font-size:13px;line-height:1.85;word-break:keep-all;overflow-wrap:anywhere}
+.digest-personal{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:48px;padding:13px 0;margin-top:24px;border-top:1px solid var(--line);border-radius:0;font-size:13px;color:var(--accent-strong);text-align:left}
+#personal-briefing-region{scroll-margin-top:90px}
+#personal-briefing-region:focus{outline:none}
+#personal-briefing-region:focus-visible{outline:2px solid var(--accent);outline-offset:8px}
 .digest-datebar{display:flex;align-items:center;gap:20px;padding:15px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
 .digest-status{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-weight:650}
 .digest-status i{display:block;width:6px;height:6px;border-radius:50%;background:var(--muted)}
@@ -295,6 +307,11 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
   .digest-controls label{width:auto;margin-right:2px;font-size:12px}
   .digest-controls select{width:auto;flex:1;min-width:0;font-size:12px}
   .digest-controls button{min-width:40px}
+  .digest-navigation{gap:4px;margin:0 0 10px;flex-wrap:wrap}
+  .digest-navigation button{padding:8px;font-size:11px}
+  .digest-navigation #daily-copy{margin-left:auto}
+  .digest-personal{margin-top:14px}
+  .digest-impact{padding:11px 12px;margin-top:14px}
   .digest-datebar{flex-wrap:wrap;column-gap:12px;row-gap:5px;padding:13px 0;font-size:11px}
   .digest-status{font-size:12px}
   .digest-datebar>span:nth-child(2){order:3;width:100%}

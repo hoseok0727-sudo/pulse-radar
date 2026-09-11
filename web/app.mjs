@@ -3,6 +3,7 @@ import {createExtension} from './access.mjs';
 import {createViews} from './views.mjs';
 import {request,requestExplorePages,download,isPublicSite} from './api.mjs';
 import {mountPersonalAI} from './personal-ai.mjs';
+import {parseRoute,dailyHash,editionLink} from './daily-navigation.mjs';
 let disposePersonalAI=null;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={preferences:{locale:'ko',theme:'light',region:'korea',categories:[],keywords:[],exclude:[]},user:null,tab:'today',period:'day',category:'all',q:'',page:1,radar:false,libraryKind:'save',expanded:false,stories:new Map(),bookmarks:[],feedback:[],hidden:[],version:0};
@@ -47,7 +48,7 @@ async function loadDaily({version=state.version}={}){
   paint();
   try{const result=await request('/api/v2/daily'+(state.dailyDate?'?date='+encodeURIComponent(state.dailyDate):''));if(sequence!==state.dailySequence)return;state.daily=result;}
   catch(error){if(sequence!==state.dailySequence)return;state.dailyError=error.message;}
-  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date'].includes(activeControl))$('#'+activeControl)?.focus();}}
+  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date','daily-previous','daily-next','daily-latest'].includes(activeControl)){const control=$('#'+activeControl);(control&&!control.disabled?control:$('#daily-date'))?.focus({preventScroll:true});}}}
 }
 async function loadHome(version){
   $('#main').innerHTML=renderToday(null);
@@ -56,7 +57,7 @@ async function loadHome(version){
   await Promise.allSettled([loadDaily({version}),personal]);
   if(version===state.version)$('#main').setAttribute('aria-busy','false');
 }
-async function load({keep=false}={}){capturePreferenceDraft();disposePersonalAI?.();disposePersonalAI=null;const version=++state.version;state.tab=tabs[location.hash.slice(1)]?location.hash.slice(1):'today';if(location.hash&&location.hash!=='#main'&&!tabs[location.hash.slice(1)])history.replaceState(null,'','#today');shell();$('#main').setAttribute('aria-busy','true');const more=$('#load-more');if(more)more.disabled=true;if(state.tab==='today')return loadHome(version);if(!keep)$('#main').innerHTML=loader();try{let html;
+async function load({keep=false}={}){capturePreferenceDraft();disposePersonalAI?.();disposePersonalAI=null;const version=++state.version;const route=parseRoute(location.hash,tabs);state.tab=route.tab;if(state.dailyDate!==route.date)state.daily={...state.daily,edition:null};state.dailyDate=route.date;const canonical=route.tab==='today'?dailyHash(route.date):'#'+route.tab;if(location.hash&&location.hash!=='#main'&&location.hash!==canonical)history.replaceState(null,'',canonical);shell();$('#main').setAttribute('aria-busy','true');const more=$('#load-more');if(more)more.disabled=true;if(state.tab==='today')return loadHome(version);if(!keep)$('#main').innerHTML=loader();try{let html;
   if(state.tab==='explore'){const q=scope();q.set('q',state.q);q.set('category',state.category);q.set('page',state.page);const data=await requestExplorePages(q);if(version!==state.version||q.get('q')!==state.q)return;state.page=data.page;html=renderExplore(data);}
   else if(state.tab==='library'){const data=await request('/api/v2/library');if(version!==state.version)return;html=renderLibrary(data);}
   else if(state.tab==='history'){const data=await request('/api/v2/history');if(version!==state.version)return;html=renderHistory(data);}
@@ -91,7 +92,19 @@ function auth(){location.hash='settings';}
 const channel='BroadcastChannel' in window?new BroadcastChannel('pulse-radar-v2'):null;
 function broadcast(){channel?.postMessage('changed')}
 if(channel)channel.onmessage=async()=>{await sync();if(!$('#dialog').open&&state.tab!=='settings')await load({keep:true})};
-window.addEventListener('hashchange',async()=>{if(location.hash==='#main'){$('#main').focus();return}clearTimeout(searchTimer);const target=location.hash.slice(1),changed=target!==state.tab;state.page=1;await load();if(changed&&state.tab===target){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});}});
+window.addEventListener('hashchange',async()=>{
+  if(location.hash==='#main'){$('#main').focus();return}
+  clearTimeout(searchTimer);
+  const route=parseRoute(location.hash,tabs),target=route.tab,changed=target!==state.tab;
+  const canonical=target==='today'?dailyHash(route.date):'#'+target;
+  if(location.hash!==canonical)history.replaceState(null,'',canonical);
+  if(!changed&&target==='today'){
+    if(state.dailyDate!==route.date)state.daily={...state.daily,edition:null};
+    state.dailyDate=route.date;await loadDaily();return;
+  }
+  state.page=1;await load();
+  if(changed&&state.tab===target){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});}
+});
 $('#dialog').addEventListener('close',()=>{
   const restored=dialogTrigger?.isConnected?dialogTrigger:[...$('#main').querySelectorAll('button')].find(node=>dialogTrigger?.dataset.open&&node.dataset.open===dialogTrigger.dataset.open||dialogTrigger?.dataset.history&&node.dataset.history===dialogTrigger.dataset.history||dialogTrigger?.id&&node.id===dialogTrigger.id);
   (restored||$('#main')).focus({preventScroll:true});
@@ -99,6 +112,7 @@ $('#dialog').addEventListener('close',()=>{
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
+  if(b.hasAttribute('data-daily-date')){location.hash=dailyHash(b.dataset.dailyDate);return;}
   if(b.dataset.open)return openStory(b.dataset.open);
   if(b.dataset.action){const s=state.stories.get(b.dataset.id),kind=b.dataset.action,prop={save:'saved',follow:'followed',read:'read',useful:'useful',hide:'hidden'}[kind];return action(b,kind,b.dataset.id,!s?.[prop]);}
   if(b.dataset.unhide)return action(b,'hide',b.dataset.unhide,false);
@@ -109,6 +123,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   if(b.dataset.confirmReset){b.disabled=true;await request('/api/v2/reset',{method:'POST',body:{scope:b.dataset.confirmReset,confirmation:'DELETE'}});if(b.dataset.confirmReset==='all'){$('#preferences')?.remove();state.preferenceDraft=null;}await sync();$('#dialog').close();await load();broadcast();return;}
   switch(b.id){
     case 'daily-retry':case 'daily-reload':return loadDaily();
+    case 'daily-personal':{const region=$('#personal-briefing-region');region?.focus({preventScroll:true});region?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});return;}
+    case 'daily-copy':{if(!state.daily?.edition)return;const link=editionLink(location.href,state.daily.edition.date);try{await navigator.clipboard.writeText(link);toast(tr('이 날짜의 브리핑 링크를 복사했어요.','Link to this edition copied.'));}catch{openDialog(`<h2>${tr('이 날짜의 브리핑 링크','Link to this edition')}</h2><p>${tr('아래 주소를 복사해 주세요.','Copy the address below.')}</p><input id="edition-link" aria-label="${tr('발행본 주소','Edition address')}" value="${esc(link)}" readonly>`);$('#edition-link').select();}return;}
+
     case 'retry':return load();
     case 'explore-week':state.period='week';state.page=1;await load({keep:true});$('#period')?.focus({preventScroll:true});return;
     case 'account':if(isPublicSite){location.hash='settings';return;}return auth();
@@ -127,7 +144,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
     case 'confirm-delete-account':await request('/api/account',{method:'DELETE',body:{}});state.stories.clear();await sync();$('#dialog').close();await load();broadcast();return;
   }
 }catch(error){b.disabled=false;toast(error.message)}});
-document.addEventListener('change',async e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='daily-date'){state.dailyDate=e.target.value;await loadDaily();$('#daily-date')?.focus();return;}if(!['region','period'].includes(e.target.id))return;const more=$('#load-more');if(more)more.disabled=true;try{if(e.target.id==='region'){state.preferences.region=e.target.value;await request('/api/v2/preferences',{method:'PUT',body:{region:e.target.value}});}else state.period=e.target.value;state.page=1;await load({keep:true});}catch(error){toast(error.message)}});
+document.addEventListener('change',async e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='daily-date'){location.hash=dailyHash(e.target.value);return;}if(!['region','period'].includes(e.target.id))return;const more=$('#load-more');if(more)more.disabled=true;try{if(e.target.id==='region'){state.preferences.region=e.target.value;await request('/api/v2/preferences',{method:'PUT',body:{region:e.target.value}});}else state.period=e.target.value;state.page=1;await load({keep:true});}catch(error){toast(error.message)}});
 document.addEventListener('compositionstart',e=>{if(e.target.id==='search'){searchComposing=true;clearTimeout(searchTimer);}});
 document.addEventListener('compositionend',e=>{if(e.target.id==='search'){searchComposing=false;scheduleSearch(e.target);}});
 document.addEventListener('input',e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='search'){if(e.isComposing){searchComposing=true;clearTimeout(searchTimer);}scheduleSearch(e.target);}if(e.target.id==='history-search'){const q=e.target.value.toLowerCase();$('#history-list').innerHTML=historyRows(state.history.items.filter(h=>JSON.stringify(h).toLowerCase().includes(q)));}});
