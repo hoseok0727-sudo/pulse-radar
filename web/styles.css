@@ -368,7 +368,6 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
 .active-filters{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:4px 0 12px;font-size:12px;color:var(--accent-strong);overflow-wrap:anywhere}
 .active-filters button{font-size:12px;min-height:44px}
 .empty-actions{flex-wrap:wrap}
-@media(min-width:1101px){.digest-lead{position:sticky;top:115px}}
 @media(max-width:760px){
   .collection-note{display:block;padding:13px 15px;margin:15px 0 20px}
   .collection-note p{margin-top:6px;font-size:11px}
