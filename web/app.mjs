@@ -113,6 +113,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
   if(b.hasAttribute('data-daily-date')){location.hash=dailyHash(b.dataset.dailyDate);return;}
+    if(b.dataset.digestJump){const target=document.getElementById(b.dataset.digestJump);target?.focus({preventScroll:true});target?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});return;}
   if(b.dataset.open)return openStory(b.dataset.open);
   if(b.dataset.action){const s=state.stories.get(b.dataset.id),kind=b.dataset.action,prop={save:'saved',follow:'followed',read:'read',useful:'useful',hide:'hidden'}[kind];return action(b,kind,b.dataset.id,!s?.[prop]);}
   if(b.dataset.unhide)return action(b,'hide',b.dataset.unhide,false);
@@ -127,7 +128,8 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
     case 'daily-copy':{if(!state.daily?.edition)return;const link=editionLink(location.href,state.daily.edition.date);try{await navigator.clipboard.writeText(link);toast(tr('이 날짜의 브리핑 링크를 복사했어요.','Link to this edition copied.'));}catch{openDialog(`<h2>${tr('이 날짜의 브리핑 링크','Link to this edition')}</h2><p>${tr('아래 주소를 복사해 주세요.','Copy the address below.')}</p><input id="edition-link" aria-label="${tr('발행본 주소','Edition address')}" value="${esc(link)}" readonly>`);$('#edition-link').select();}return;}
 
     case 'retry':return load();
-    case 'explore-week':state.period='week';state.page=1;await load({keep:true});$('#period')?.focus({preventScroll:true});return;
+        case 'explore-week':case 'personal-week':{const control=b.id==='personal-week'?'personal-period':'period';state.period='week';state.page=1;state.expanded=false;await load({keep:true});const target=$('#'+control);target?.focus({preventScroll:true});if(control==='personal-period')$('#personal-briefing-region')?.scrollIntoView({block:'start'});return;}
+    case 'explore-clear':clearTimeout(searchTimer);state.q='';state.category='all';state.page=1;await load({keep:true});$('#search')?.focus({preventScroll:true});return;
     case 'account':if(isPublicSite){location.hash='settings';return;}return auth();
     case 'expand':state.expanded=true;$('#personal-briefing-region').innerHTML=renderPersonal(state.briefing);return;
     case 'radar-toggle':state.radar=!state.radar;$('#main').innerHTML=renderExplore(state.explore);return;
@@ -144,7 +146,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
     case 'confirm-delete-account':await request('/api/account',{method:'DELETE',body:{}});state.stories.clear();await sync();$('#dialog').close();await load();broadcast();return;
   }
 }catch(error){b.disabled=false;toast(error.message)}});
-document.addEventListener('change',async e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='daily-date'){location.hash=dailyHash(e.target.value);return;}if(!['region','period'].includes(e.target.id))return;const more=$('#load-more');if(more)more.disabled=true;try{if(e.target.id==='region'){state.preferences.region=e.target.value;await request('/api/v2/preferences',{method:'PUT',body:{region:e.target.value}});}else state.period=e.target.value;state.page=1;await load({keep:true});}catch(error){toast(error.message)}});
+document.addEventListener('change',async e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='daily-date'){location.hash=dailyHash(e.target.value);return;}if(!['region','period','personal-period'].includes(e.target.id))return;const more=$('#load-more');if(more)more.disabled=true;try{if(e.target.id==='region'){state.preferences.region=e.target.value;await request('/api/v2/preferences',{method:'PUT',body:{region:e.target.value}});}else state.period=e.target.value;state.page=1;state.expanded=false;const control=e.target.id;await load({keep:true});$('#'+control)?.focus({preventScroll:true});if(control==='personal-period')$('#personal-briefing-region')?.scrollIntoView({block:'start'});}catch(error){toast(error.message)}});
 document.addEventListener('compositionstart',e=>{if(e.target.id==='search'){searchComposing=true;clearTimeout(searchTimer);}});
 document.addEventListener('compositionend',e=>{if(e.target.id==='search'){searchComposing=false;scheduleSearch(e.target);}});
 document.addEventListener('input',e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='search'){if(e.isComposing){searchComposing=true;clearTimeout(searchTimer);}scheduleSearch(e.target);}if(e.target.id==='history-search'){const q=e.target.value.toLowerCase();$('#history-list').innerHTML=historyRows(state.history.items.filter(h=>JSON.stringify(h).toLowerCase().includes(q)));}});

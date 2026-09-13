@@ -345,3 +345,36 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
 
 /* Keep complete Korean words together in narrow reader headings. */
 .page-heading h1,.page-heading h2{word-break:keep-all;overflow-wrap:anywhere}
+
+/* Reading shortcuts and clear time ranges for a published collection. */
+.digest-contents{margin-top:25px;border-top:1px solid var(--line)}
+.digest-contents h3{font-size:12px;color:var(--muted);font-weight:600;margin:18px 0 8px;scroll-margin-top:110px}
+.digest-contents button{display:grid;grid-template-columns:22px minmax(0,1fr) 14px;gap:10px;width:100%;padding:14px 0;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;align-items:start}
+.digest-contents button>span:first-child{font-size:11px;color:var(--accent);padding-top:3px;font-variant-numeric:tabular-nums}
+.digest-contents small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}
+.digest-contents strong{font-size:13px;line-height:1.7;font-weight:550;word-break:keep-all;overflow-wrap:anywhere}
+.digest-contents button>span:last-child{color:var(--accent);font-size:15px}
+.digest-contents button:hover strong{color:var(--accent-strong)}
+.digest-story{scroll-margin-top:110px}
+.digest-story:focus{outline:0}
+.digest-story:focus-visible{outline:2px solid var(--accent);outline-offset:5px;border-radius:10px}
+.digest-return{font-size:11px;color:var(--muted);min-height:44px;margin-top:8px;padding:8px 0}
+.collection-note{display:flex;gap:20px;align-items:center;justify-content:space-between;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 17px;margin:16px 0 24px;font-size:12px}
+.collection-note>span{flex-shrink:0;color:var(--muted)}
+.collection-note strong{color:var(--ink);font-weight:550;margin-left:6px}
+.collection-note p{margin:0;color:var(--muted);line-height:1.7;word-break:keep-all}
+.period-label{font-size:11px;color:var(--muted)}
+#personal-period{width:auto;min-height:42px;font-size:12px;padding:8px}
+.active-filters{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:4px 0 12px;font-size:12px;color:var(--accent-strong);overflow-wrap:anywhere}
+.active-filters button{font-size:12px;min-height:44px}
+.empty-actions{flex-wrap:wrap}
+@media(min-width:1101px){.digest-lead{position:sticky;top:115px}}
+@media(max-width:760px){
+  .collection-note{display:block;padding:13px 15px;margin:15px 0 20px}
+  .collection-note p{margin-top:6px;font-size:11px}
+  .digest-contents{margin-top:20px}
+  .digest-contents button{padding:12px 0}
+  .digest-story,.digest-contents h3{scroll-margin-top:155px}
+  #personal-briefing-region{scroll-margin-top:145px}
+  #personal-briefing-region>.page-heading .tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:15px}
+}

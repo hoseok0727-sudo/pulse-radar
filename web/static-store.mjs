@@ -109,6 +109,12 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
     const duration=({day:1,week:7,month:30}[scope.period]||1)*DAY,p=personal.preferences,active=personalized&&p.personalization!==false;
     return publication.stories.filter(s=>!s.region||s.region===scope.region).filter(s=>{const at=time(s.publishedAt);return Number.isFinite(at)&&at<=Number(now())&&at>=Number(now())-duration;}).filter(s=>!p.exclude.some(k=>storyMatches(s,k))).map(s=>decorate(s,personal,{personalized,baseline,baselineAt})).filter(s=>!s.hidden).filter(s=>!active||!p.categories.length&&!p.keywords.length||s.followed||p.categories.includes(s.category)||s.matchedKeywords.length);
   }
+  function recovery(publication,personal,scope,{personalized=true,q='',category='all'}={}){
+    if(scope.period!=='day')return null;
+    const older=candidates(publication,personal,{...scope,period:'week'},{personalized})
+      .filter(s=>(!q||storyMatches(s,q))&&(!category||category==='all'||s.category===category));
+    return older.length?{period:'week',count:older.length}:null;
+  }
   function ranked(stories,personal,{personalized=true}={}){
     const active=personalized&&personal.preferences.personalization!==false;
     const score=s=>(active?(s.followed?48:s.matchedKeywords.length?40:personal.preferences.categories.includes(s.category)?18:0)+(s.read?-45:0)+(s.useful?5:0):0)+(s.evidence==='source-reviewed'?8:0)+Math.max(0,18-Math.max(0,(Number(now())-time(s.publishedAt))/3600000)*.6)+Math.min(s.sourceCount,5)*3+s.rawScore*.2;
@@ -119,6 +125,7 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
   async function briefing(scope,force=false){
     const publication=await published(force),personal=read(),key=scope.region+':'+scope.period,previous=personal.visits[key],fresh=!previous||Number(now())-time(previous.startedAt)>30*60000,baseline=fresh?previous?.current||[]:previous.baseline||[],baselineAt=(fresh?previous?.currentAt:previous.baselineAt)||null;
     const stories=ranked(candidates(publication,personal,scope,{baseline,baselineAt}),personal),metadata={...meta(publication,[],scope.region),...scope},terms=personal.preferences.personalization!==false?personal.preferences.keywords:[];
+    if(!stories.length)metadata.recovery=recovery(publication,personal,scope);
     if(terms.length)metadata.interestCoverage=coverage(terms,stories,metadata);
     const body={scope:key,generatedAt:iso(),baselineAt,items:stories.slice(0,6),total:stories.length,preferences:copy(personal.preferences),meta:metadata};
     // A failed/stale refresh cannot overwrite the last successful reading baseline.
@@ -147,6 +154,7 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
       const publication=await published(),q=normalize(url.searchParams.get('q')||'').slice(0,100),category=url.searchParams.get('category');
       personal=read();const metadata={...meta(publication,q?[q]:[],scope.region),...scope};
       let stories=ranked(candidates(publication,personal,scope,{personalized:false}),personal,{personalized:false});if(q)stories=stories.filter(s=>storyMatches(s,q));if(category&&category!=='all')stories=stories.filter(s=>s.category===category);
+      if(!stories.length)metadata.recovery=recovery(publication,personal,scope,{personalized:false,q,category});
       if(q)metadata.interestCoverage=coverage([q],stories,metadata);const page=Math.max(1,Math.min(100,Math.floor(Number(url.searchParams.get('page'))||1)));
       return {items:stories.slice((page-1)*12,page*12),total:stories.length,page,hasMore:page*12<stories.length,meta:metadata};
     }
