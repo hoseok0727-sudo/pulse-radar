@@ -112,6 +112,18 @@ $('#dialog').addEventListener('close',()=>{
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
+  if(b.dataset.digestMode){
+    state.dailyReadingMode=b.dataset.digestMode==='compact'?'compact':'full';
+    $('.daily-digest')?.classList.toggle('is-compact',state.dailyReadingMode==='compact');
+    document.querySelectorAll('[data-digest-mode]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.digestMode===state.dailyReadingMode)));
+    return;
+  }
+  if(b.hasAttribute('data-digest-context')){
+    const article=b.closest('.digest-story'),expanded=article.classList.toggle('is-expanded');
+    b.setAttribute('aria-expanded',String(expanded));
+    b.textContent=expanded?tr('맥락 접기 −','Hide context −'):tr('왜 중요한지 보기 +','Show why it matters +');
+    return;
+  }
   if(b.hasAttribute('data-daily-date')){location.hash=dailyHash(b.dataset.dailyDate);return;}
     if(b.dataset.digestJump){const target=document.getElementById(b.dataset.digestJump);target?.focus({preventScroll:true});target?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});return;}
   if(b.dataset.open)return openStory(b.dataset.open);

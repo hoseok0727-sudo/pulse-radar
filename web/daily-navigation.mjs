@@ -23,3 +23,13 @@ export function editionLink(base, date) {
   url.hash = dailyHash(date);
   return url.href;
 }
+
+export function sourceDateLabel(value, locale = 'ko') {
+  const english = locale === 'en';
+  if (!value) return english ? 'Publication date unavailable' : '발표일 확인 전';
+  // A calendar date has no timezone. Do not invent a Korean publication time.
+  if (validEditionDate(value)) return value + (english ? ' · source date' : ' · 원문 표기일');
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return english ? 'Publication date unavailable' : '발표일 확인 전';
+  return new Intl.DateTimeFormat(english ? 'en-US' : 'ko-KR', {timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date) + ' KST';
+}
