@@ -1,6 +1,7 @@
 // Public Pages edition: common stories are published files; personal state stays
 // in this browser. This module never stores credentials or calls an AI provider.
 import {REGION_KEYS,CATEGORY_KEYS} from './catalog.mjs';
+import {editionIndex} from './daily-navigation.mjs';
 export const STATIC_STORAGE_KEY = 'pulse-radar:public:v1';
 const DAY=86400000,KST=9*3600000;
 const PERIODS=['day','week','month'];
@@ -147,7 +148,7 @@ export function createStaticRequest({loadData=defaultLoad,storage=browserStorage
       const dates=url.searchParams.getAll('date'),date=dates[0];if(dates.length>1||date!==undefined&&!realDate(date))throw fail('날짜는 YYYY-MM-DD 형식의 실제 날짜여야 합니다.');
       const publication=await published(true);if(loadFailed)throw fail('발행본을 다시 확인하지 못했습니다. 이전에 읽던 내용과 기록은 보관되어 있습니다.',503);
       const expectedDate=kstDate(Number(now())-DAY),editions=publication.editions.filter(e=>e.date<=expectedDate&&time(e.publishedAt)<=Number(now())&&time(e.coverageEnd)<=Number(now())).sort((a,b)=>b.date.localeCompare(a.date)),edition=(date?editions.find(e=>e.date===date):editions[0])||null;
-      return copy({edition,availableDates:editions.map(e=>e.date),status:edition?edition.date===expectedDate?'current':'stale':'empty',expectedDate});
+      return copy({edition,availableDates:editions.map(e=>e.date),editionIndex:editionIndex(editions),status:edition?edition.date===expectedDate?'current':'stale':'empty',expectedDate});
     }
     if(verb==='GET'&&route==='/api/v2/briefing'||verb==='POST'&&route==='/api/v2/refresh')return briefing(scope,verb==='POST');
     if(verb==='GET'&&route==='/api/v2/explore'){

@@ -1,4 +1,19 @@
+import {CATEGORIES} from './catalog.mjs';
 // Public edition addresses contain only the covered date, never reader state.
+export function expectedReaderDate(now=Date.now()) {
+  return new Date(now-15*3600000).toISOString().slice(0,10);
+}
+export function editionIndex(editions) {
+  return (editions||[]).filter(e=>validEditionDate(e.date)).map(e=>({date:e.date,headline:e.headline,headlineEn:e.headlineEn||'',topics:(e.stories||[]).map(s=>({headline:s.headline,headlineEn:s.headlineEn||'',category:s.category}))}));
+}
+export function searchEditions(index,query='') {
+  const normalize=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().trim();
+  const terms=normalize(query).split(/\s+/).filter(Boolean);
+  return (index||[]).filter(e=>{
+    const text=normalize([e.date,e.headline,e.headlineEn,...(e.topics||[]).flatMap(s=>[s.headline,s.headlineEn,...(CATEGORIES[s.category]||[s.category])])].join(' '));
+    return terms.every(term=>text.includes(term));
+  });
+}
 export function validEditionDate(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     Number.isFinite(Date.parse(value + 'T12:00:00Z')) &&

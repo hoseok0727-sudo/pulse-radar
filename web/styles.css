@@ -387,3 +387,25 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
   #personal-briefing-region{scroll-margin-top:145px}
   #personal-briefing-region>.page-heading .tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:15px}
 }
+
+/* Find an edition by its subject as well as its date. */
+.digest-navigation{flex-wrap:wrap}
+#daily-archive{margin-left:auto;color:var(--accent-strong)}
+.edition-archive>h2{font-size:28px;letter-spacing:-1px;margin:12px 0 8px}
+.edition-archive>p{font-size:14px;line-height:1.7;color:var(--muted);margin-bottom:24px}
+.edition-archive>label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
+#archive-search{width:100%;font-size:16px;min-height:48px}
+.archive-count{font-size:13px;color:var(--muted);margin:16px 0 10px}
+.archive-list{display:grid;gap:12px}
+.archive-card{display:block;width:100%;text-align:left;padding:20px;background:var(--paper);border:1px solid var(--line);border-radius:14px}
+.archive-card:hover{border-color:var(--accent);background:var(--tint)}
+.archive-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--accent-strong);font-size:13px}
+.archive-card>strong{display:block;font-size:18px;font-weight:650;line-height:1.65;word-break:keep-all;overflow-wrap:anywhere;margin:10px 0 14px}
+.archive-topics{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
+.archive-topics>span{display:block;font-size:14px;line-height:1.65;font-weight:400;word-break:keep-all;overflow-wrap:anywhere}
+.archive-topics small{display:inline-block;font-size:12px;color:var(--muted);margin-right:8px}
+.archive-empty{padding:22px 0}
+.archive-empty p{font-size:14px;color:var(--muted);line-height:1.8}
+.digest-rollover:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:15px;padding:15px 18px;margin:12px 0;background:var(--tint);border:1px solid var(--line);border-radius:12px;font-size:14px;line-height:1.7}
+.digest-rollover button{flex-shrink:0;min-height:44px;font-size:13px}
+@media(max-width:760px){.digest-navigation{justify-content:flex-start}#daily-archive{margin-left:0}.archive-card{padding:17px}.edition-archive>h2{font-size:25px}.archive-card>strong{font-size:17px}.digest-rollover:not([hidden]){align-items:flex-start;flex-direction:column;gap:8px}}

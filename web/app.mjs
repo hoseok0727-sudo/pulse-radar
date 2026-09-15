@@ -3,7 +3,7 @@ import {createExtension} from './access.mjs';
 import {createViews} from './views.mjs';
 import {request,requestExplorePages,download,isPublicSite} from './api.mjs';
 import {mountPersonalAI} from './personal-ai.mjs';
-import {parseRoute,dailyHash,editionLink} from './daily-navigation.mjs';
+import {parseRoute,dailyHash,editionLink,expectedReaderDate} from './daily-navigation.mjs';
 let disposePersonalAI=null;
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={preferences:{locale:'ko',theme:'light',region:'korea',categories:[],keywords:[],exclude:[]},user:null,tab:'today',period:'day',category:'all',q:'',page:1,radar:false,libraryKind:'save',expanded:false,stories:new Map(),bookmarks:[],feedback:[],hidden:[],version:0};
@@ -31,7 +31,7 @@ function scheduleSearch(input){
 function remember(items){for(const s of items||[])state.stories.set(s.topicId,s);return items||[]}
 function scope(){return new URLSearchParams({region:state.preferences.region,period:state.period})}
 function shell(){document.documentElement.lang=state.preferences.locale;document.body.classList.toggle('dark',state.preferences.theme==='dark');$('#navigation').innerHTML=Object.entries(tabs).map(([key,n])=>`<a href="#${key}" ${key===state.tab?'aria-current="page"':''}>${esc(tr(...n))}</a>`).join('');$('#navigation').setAttribute('aria-label',tr('주요 메뉴','Main navigation'));$('.skip').textContent=tr('본문으로 이동','Skip to content');$('.dialog-close').setAttribute('aria-label',tr('닫기','Close'));$('#dialog').setAttribute('aria-label',tr('상세 내용','Story details'));$('#account').textContent=state.user?.displayName||tr(isPublicSite?'내 설정':'내 계정',isPublicSite?'My settings':'Account');$('#language').textContent=tr('EN','한국어');$('.edition').textContent=tr('세상의 흐름, 나의 관심사','The world. Your interests.');$('#footer-copy').textContent=tr('하루의 흐름을 읽고, 관심사를 이어가다','Read the day. Follow your curiosity.');$('#theme').setAttribute('aria-label',state.preferences.theme==='dark'?tr('밝은 테마로 변경','Switch to light theme'):tr('어두운 테마로 변경','Switch to dark theme'));$('#theme').setAttribute('aria-pressed',String(state.preferences.theme==='dark'));document.querySelector('meta[name="theme-color"]').content=state.preferences.theme==='dark'?'#11141b':'#f5f6fa';extension?.shell();}
-const {heading,empty,loader,renderDaily,renderPersonal,renderToday,renderExplore,renderLibrary,renderHistory,historyRows,renderSettings,sourceLinks,actionButtons}=createViews({state,$,esc,tr,txt,date,categoryName,cat,remember,href,storyTitle});
+const {heading,empty,loader,renderArchive,archiveRows,renderDaily,renderPersonal,renderToday,renderExplore,renderLibrary,renderHistory,historyRows,renderSettings,sourceLinks,actionButtons}=createViews({state,$,esc,tr,txt,date,categoryName,cat,remember,href,storyTitle});
 const extension=createExtension?.({state,$,esc,tr,date,href,heading,sourceLinks,request,download,toast,load});
 Object.assign(tabs,extension?.tabs||{});
 extension?.initialize();
@@ -40,15 +40,28 @@ async function openStory(id){try{let s=state.stories.get(id);if(!s)s=await reque
   const reports=s.articles||[];
   openDialog(`<article class="detail"><div class="eyebrow">${esc(categoryName(s.category))} · ${esc(date(s.publishedAt))}</div><h1>${esc(storyTitle(s))}</h1><p class="source-notice">${tr('관련 제목의 원문 보도를 모았습니다. 기사 본문을 검토한 요약은 아니므로, 아래 출처에서 내용을 확인해 주세요.','A collection of related source headlines. Article bodies have not been reviewed; read the original reports below.')}</p>${actionButtons(s)}<h2>${tr('원문에서 이어 읽기','Continue with the original reports')}</h2>${sourceLinks(reports.slice(0,5))}${reports.length>5?`<details class="more-sources"><summary>${tr('원문 더 보기','More source reports')} · ${reports.length-5}</summary>${sourceLinks(reports.slice(5))}</details>`:''}<details class="collection-context"><summary>${tr('이 소식을 고른 이유와 지난 기록','Why this story & previous coverage')}</summary><p>${esc(txt(s.reason))}</p><p>${esc(txt(s.change))}</p>${sourceLinks(s.change?.articles||[])}</details></article>`);return;
 }openDialog(`<article class="detail"><div class="eyebrow">${esc(categoryName(s.category))} · ${esc(date(s.publishedAt))}</div><h1>${esc(storyTitle(s))}</h1><p class="lead">${esc(txt(s.summary))}</p>${s.why?`<div class="editor-note"><strong>${tr('이 대목을 봐주세요','What to pay attention to')}</strong><p>${esc(txt(s.why))}</p></div>`:''}<div class="change-box"><h2>${tr('지난번 이후','Since your last visit')}</h2><p>${esc(txt(s.change))}</p>${sourceLinks(s.change.articles||[])}</div><h2>${tr('다음에 확인할 질문','What to watch next')}</h2><p>${esc(txt(s.next))}</p><p class="source-notice">${esc(txt(s.limits))}</p><h2>${tr('이 이야기를 고른 이유','Why this story')}</h2><p>${esc(txt(s.reason))}</p>${actionButtons(s)}${extension?.detailActions(s)||''}<h2>${tr('확인한 원문과 관련 보도','Original sources and coverage')}</h2>${sourceLinks(s.verifiedSources?.length?s.verifiedSources:s.articles)}<p class="fine">${s.evidence==='source-reviewed'?tr('Codex가 공식 원문을 대조해 작성한 AI 편집 설명입니다. 원문과 함께 확인해 주세요.','AI editorial context written by Codex after checking official sources. Read alongside the originals.'):tr('보도 제목을 수집한 상태입니다. 본문 검증이나 AI의 사실 판정을 뜻하지 않습니다.','Collected source headlines. Article bodies have not been fact-checked.')}</p></article>`);}catch(e){toast(e.message)}}
+function updateDailyClock(){
+  const notice=$('#daily-rollover');if(!notice||state.tab!=='today')return;
+  const changed=!state.dailyDate&&state.daily?.expectedDate&&state.daily.expectedDate<expectedReaderDate();
+  notice.hidden=!changed;
+  if(changed&&notice.dataset.expectedDate!==expectedReaderDate()){
+    notice.dataset.expectedDate=expectedReaderDate();
+    notice.innerHTML=`<span>${tr('날짜가 바뀌었어요. 새 하루 요약을 확인해 보세요.','A new day has started. Check for the latest edition.')}</span><button id="daily-check-new">${tr('새 발행본 확인','Check latest')}</button>`;
+    $('#daily-title').textContent=tr('이날, 이런 일이 있었어요','Here’s what happened that day');
+    const status=$('.digest-status');if(status){status.classList.remove('is-current');status.textContent=tr('이전에 불러온 발행본','Previously loaded edition');}
+  }
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateDailyClock()});
+setInterval(()=>{if(!document.hidden)updateDailyClock()},60000);
 async function loadDaily({version=state.version}={}){
   const sequence=state.dailySequence=(state.dailySequence||0)+1;
   const activeControl=document.activeElement?.id;
   state.dailyBusy=true;state.dailyError='';
-  const paint=()=>{if(version===state.version&&state.tab==='today'&&$('#daily-digest-region'))$('#daily-digest-region').innerHTML=renderDaily()};
+  const paint=()=>{if(version===state.version&&state.tab==='today'&&$('#daily-digest-region')){$('#daily-digest-region').innerHTML=renderDaily();updateDailyClock()}};
   paint();
   try{const result=await request('/api/v2/daily'+(state.dailyDate?'?date='+encodeURIComponent(state.dailyDate):''));if(sequence!==state.dailySequence)return;state.daily=result;}
   catch(error){if(sequence!==state.dailySequence)return;state.dailyError=error.message;}
-  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date','daily-previous','daily-next','daily-latest'].includes(activeControl)){const control=$('#'+activeControl);(control&&!control.disabled?control:$('#daily-date'))?.focus({preventScroll:true});}}}
+  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date','daily-previous','daily-next','daily-latest','daily-archive','daily-check-new'].includes(activeControl)){const control=$('#'+activeControl);(control&&!control.disabled?control:$('#daily-date'))?.focus({preventScroll:true});}}}
 }
 async function loadHome(version){
   $('#main').innerHTML=renderToday(null);
@@ -112,6 +125,7 @@ $('#dialog').addEventListener('close',()=>{
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
+  if(b.dataset.archiveDate){$('#dialog').close();location.hash=dailyHash(b.dataset.archiveDate);window.scrollTo({top:0,behavior:'instant'});return;}
   if(b.dataset.digestMode){
     state.dailyReadingMode=b.dataset.digestMode==='compact'?'compact':'full';
     $('.daily-digest')?.classList.toggle('is-compact',state.dailyReadingMode==='compact');
@@ -135,7 +149,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   if(b.dataset.history){const h=state.history.items.find(h=>h.id===b.dataset.history);return openDialog(`<div class="detail"><div class="eyebrow">${esc(date(h.generatedAt,true))} · ${tr('당시의 브리핑','Archived briefing')}</div>${h.items.map(s=>`<section><h1>${esc(storyTitle(s))}</h1><p>${esc(txt(s.summary))}</p>${s.why?`<p>${esc(txt(s.why))}</p>`:''}<h2>${tr('다음 질문','Next question')}</h2><p>${esc(txt(s.next))}</p>${sourceLinks(s.verifiedSources?.length?s.verifiedSources:s.articles)}</section>`).join('')}</div>`);}
   if(b.dataset.confirmReset){b.disabled=true;await request('/api/v2/reset',{method:'POST',body:{scope:b.dataset.confirmReset,confirmation:'DELETE'}});if(b.dataset.confirmReset==='all'){$('#preferences')?.remove();state.preferenceDraft=null;}await sync();$('#dialog').close();await load();broadcast();return;}
   switch(b.id){
-    case 'daily-retry':case 'daily-reload':return loadDaily();
+    case 'daily-archive':openDialog(renderArchive());$('#archive-search').focus();return;
+    case 'archive-clear':$('#archive-search').value='';$('#archive-results').innerHTML=archiveRows();$('#archive-search').focus();return;
+    case 'daily-check-new':case 'daily-retry':case 'daily-reload':return loadDaily();
     case 'daily-personal':{const region=$('#personal-briefing-region');region?.focus({preventScroll:true});region?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});return;}
     case 'daily-copy':{if(!state.daily?.edition)return;const link=editionLink(location.href,state.daily.edition.date);try{await navigator.clipboard.writeText(link);toast(tr('이 날짜의 브리핑 링크를 복사했어요.','Link to this edition copied.'));}catch{openDialog(`<h2>${tr('이 날짜의 브리핑 링크','Link to this edition')}</h2><p>${tr('아래 주소를 복사해 주세요.','Copy the address below.')}</p><input id="edition-link" aria-label="${tr('발행본 주소','Edition address')}" value="${esc(link)}" readonly>`);$('#edition-link').select();}return;}
 
@@ -161,7 +177,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
 document.addEventListener('change',async e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='daily-date'){location.hash=dailyHash(e.target.value);return;}if(!['region','period','personal-period'].includes(e.target.id))return;const more=$('#load-more');if(more)more.disabled=true;try{if(e.target.id==='region'){state.preferences.region=e.target.value;await request('/api/v2/preferences',{method:'PUT',body:{region:e.target.value}});}else state.period=e.target.value;state.page=1;state.expanded=false;const control=e.target.id;await load({keep:true});$('#'+control)?.focus({preventScroll:true});if(control==='personal-period')$('#personal-briefing-region')?.scrollIntoView({block:'start'});}catch(error){toast(error.message)}});
 document.addEventListener('compositionstart',e=>{if(e.target.id==='search'){searchComposing=true;clearTimeout(searchTimer);}});
 document.addEventListener('compositionend',e=>{if(e.target.id==='search'){searchComposing=false;scheduleSearch(e.target);}});
-document.addEventListener('input',e=>{if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='search'){if(e.isComposing){searchComposing=true;clearTimeout(searchTimer);}scheduleSearch(e.target);}if(e.target.id==='history-search'){const q=e.target.value.toLowerCase();$('#history-list').innerHTML=historyRows(state.history.items.filter(h=>JSON.stringify(h).toLowerCase().includes(q)));}});
+document.addEventListener('input',e=>{if(e.target.id==='archive-search'){$('#archive-results').innerHTML=archiveRows(e.target.value);return;}if(e.target.closest('#preferences'))capturePreferenceDraft();if(e.target.id==='search'){if(e.isComposing){searchComposing=true;clearTimeout(searchTimer);}scheduleSearch(e.target);}if(e.target.id==='history-search'){const q=e.target.value.toLowerCase();$('#history-list').innerHTML=historyRows(state.history.items.filter(h=>JSON.stringify(h).toLowerCase().includes(q)));}});
 document.addEventListener('submit',async e=>{e.preventDefault();const form=e.target,button=form.querySelector('button[type=submit]'),error=form.querySelector('.form-error');if(!button)return;button.disabled=true;if(error)error.textContent='';try{const data=new FormData(form);
   if(form.id==='preferences'){await request('/api/v2/preferences',{method:'PUT',body:{categories:data.getAll('categories'),keywords:String(data.get('keywords')).split(','),exclude:String(data.get('exclude')).split(','),region:data.get('region'),personalization:data.has('personalization'),onboarded:true}});await sync();state.preferenceDraft=null;state.expanded=false;location.hash='today';if(state.tab==='today')await load();toast(tr('관심사를 기억해 두었습니다.','Your interests are saved.'));broadcast();}
   if(form.id==='auth-form'){const mode=form.dataset.mode,body=Object.fromEntries(data);await request('/api/auth/'+(mode==='recover'?'recover':mode),{method:'POST',body});if(mode==='recover'){auth('login');toast(tr('비밀번호를 바꿨습니다. 다시 로그인해 주세요.','Password changed. Sign in again.'));return;}await request('/api/v2/claim',{method:'POST',body:{}});state.stories.clear();await sync();$('#dialog').close();await load();broadcast();}
