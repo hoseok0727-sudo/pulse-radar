@@ -61,7 +61,26 @@ async function loadDaily({version=state.version}={}){
   paint();
   try{const result=await request('/api/v2/daily'+(state.dailyDate?'?date='+encodeURIComponent(state.dailyDate):''));if(sequence!==state.dailySequence)return;state.daily=result;}
   catch(error){if(sequence!==state.dailySequence)return;state.dailyError=error.message;}
-  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date','daily-previous','daily-next','daily-latest','daily-archive','daily-check-new'].includes(activeControl)){const control=$('#'+activeControl);(control&&!control.disabled?control:$('#daily-date'))?.focus({preventScroll:true});}}}
+  finally{if(sequence===state.dailySequence){state.dailyBusy=false;paint();if(version===state.version&&['daily-reload','daily-retry','daily-date','daily-previous','daily-next','daily-latest','daily-archive','daily-check-new'].includes(activeControl)){const control=$('#'+activeControl);(control&&!control.disabled?control:$('#daily-date'))?.focus({preventScroll:true});}if(version===state.version&&state.tab==='today'&&state.dailyFocusPending&&!state.dailyError){focusDailyStory();}}}
+}
+function focusDailyStory(){
+  state.dailyFocusPending=false;
+  const edition=state.daily?.edition;
+  if(!edition||edition.date!==state.dailyDate)return;
+  const index=edition.stories.findIndex(story=>story.id===state.dailyStory);
+  const target=index>=0?document.getElementById('digest-story-'+index):null;
+  if(!target){toast(tr('이 소식을 찾지 못했어요. 같은 날의 요약을 보여드립니다.','This story was not found. Showing its daily edition.'));return;}
+  target.classList.add('is-expanded','is-linked');
+  const toggle=target.querySelector('[data-digest-context]');
+  if(toggle){toggle.setAttribute('aria-expanded','true');toggle.textContent=tr('맥락 접기 −','Hide context −');}
+  target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:'instant'});
+}
+async function copyDailyLink(story=''){
+  const edition=state.daily?.edition;if(!edition)return;
+  if(story&&!edition.stories.some(item=>item.id===story))return;
+  const link=editionLink(location.href,edition.date,story);
+  try{await navigator.clipboard.writeText(link);toast(tr(story?'이 소식으로 바로 가는 링크를 복사했어요.':'이 날짜의 브리핑 링크를 복사했어요.',story?'Link to this story copied.':'Link to this edition copied.'));}
+  catch{openDialog(`<h2>${tr(story?'이 소식의 링크':'이 날짜의 브리핑 링크',story?'Link to this story':'Link to this edition')}</h2><p>${tr('아래 주소를 복사해 주세요.','Copy the address below.')}</p><input id="edition-link" aria-label="${tr('공유 주소','Share address')}" value="${esc(link)}" readonly>`);$('#edition-link').select();}
 }
 async function loadHome(version){
   $('#main').innerHTML=renderToday(null);
@@ -70,7 +89,7 @@ async function loadHome(version){
   await Promise.allSettled([loadDaily({version}),personal]);
   if(version===state.version)$('#main').setAttribute('aria-busy','false');
 }
-async function load({keep=false}={}){capturePreferenceDraft();disposePersonalAI?.();disposePersonalAI=null;const version=++state.version;const route=parseRoute(location.hash,tabs);state.tab=route.tab;if(state.dailyDate!==route.date)state.daily={...state.daily,edition:null};state.dailyDate=route.date;const canonical=route.tab==='today'?dailyHash(route.date):'#'+route.tab;if(location.hash&&location.hash!=='#main'&&location.hash!==canonical)history.replaceState(null,'',canonical);shell();$('#main').setAttribute('aria-busy','true');const more=$('#load-more');if(more)more.disabled=true;if(state.tab==='today')return loadHome(version);if(!keep)$('#main').innerHTML=loader();try{let html;
+async function load({keep=false}={}){capturePreferenceDraft();disposePersonalAI?.();disposePersonalAI=null;const version=++state.version;const route=parseRoute(location.hash,tabs);state.tab=route.tab;if(state.dailyDate!==route.date)state.daily={...state.daily,edition:null};state.dailyFocusPending=Boolean(route.story&&(state.dailyStory!==route.story||state.dailyDate!==route.date));state.dailyDate=route.date;state.dailyStory=route.story||'';const canonical=route.tab==='today'?dailyHash(route.date,route.story):'#'+route.tab;if(location.hash&&location.hash!=='#main'&&location.hash!==canonical)history.replaceState(null,'',canonical);shell();$('#main').setAttribute('aria-busy','true');const more=$('#load-more');if(more)more.disabled=true;if(state.tab==='today')return loadHome(version);if(!keep)$('#main').innerHTML=loader();try{let html;
   if(state.tab==='explore'){const q=scope();q.set('q',state.q);q.set('category',state.category);q.set('page',state.page);const data=await requestExplorePages(q);if(version!==state.version||q.get('q')!==state.q)return;state.page=data.page;html=renderExplore(data);}
   else if(state.tab==='library'){const data=await request('/api/v2/library');if(version!==state.version)return;html=renderLibrary(data);}
   else if(state.tab==='history'){const data=await request('/api/v2/history');if(version!==state.version)return;html=renderHistory(data);}
@@ -109,14 +128,14 @@ window.addEventListener('hashchange',async()=>{
   if(location.hash==='#main'){$('#main').focus();return}
   clearTimeout(searchTimer);
   const route=parseRoute(location.hash,tabs),target=route.tab,changed=target!==state.tab;
-  const canonical=target==='today'?dailyHash(route.date):'#'+target;
+  const canonical=target==='today'?dailyHash(route.date,route.story):'#'+target;
   if(location.hash!==canonical)history.replaceState(null,'',canonical);
   if(!changed&&target==='today'){
     if(state.dailyDate!==route.date)state.daily={...state.daily,edition:null};
-    state.dailyDate=route.date;await loadDaily();return;
+    state.dailyDate=route.date;state.dailyStory=route.story||'';state.dailyFocusPending=Boolean(route.story);await loadDaily();return;
   }
   state.page=1;await load();
-  if(changed&&state.tab===target){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});}
+  if(changed&&state.tab===target&&!(target==='today'&&route.story)){window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});}
 });
 $('#dialog').addEventListener('close',()=>{
   const restored=dialogTrigger?.isConnected?dialogTrigger:[...$('#main').querySelectorAll('button')].find(node=>dialogTrigger?.dataset.open&&node.dataset.open===dialogTrigger.dataset.open||dialogTrigger?.dataset.history&&node.dataset.history===dialogTrigger.dataset.history||dialogTrigger?.id&&node.id===dialogTrigger.id);
@@ -126,6 +145,13 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
   if(b.dataset.archiveDate){$('#dialog').close();location.hash=dailyHash(b.dataset.archiveDate);window.scrollTo({top:0,behavior:'instant'});return;}
+  if(b.dataset.digestShare)return copyDailyLink(b.dataset.digestShare);
+  if(b.dataset.digestCategory&&Object.hasOwn(cat,b.dataset.digestCategory)){
+    clearTimeout(searchTimer);state.q='';state.category=b.dataset.digestCategory;state.period='week';state.page=1;state.radar=false;
+    const edition=state.daily?.edition;
+    state.exploreOrigin=edition?{date:edition.date,story:b.dataset.digestId||'',category:state.category}:null;
+    location.hash='explore';return;
+  }
   if(b.dataset.digestMode){
     state.dailyReadingMode=b.dataset.digestMode==='compact'?'compact':'full';
     $('.daily-digest')?.classList.toggle('is-compact',state.dailyReadingMode==='compact');
@@ -153,7 +179,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button');i
     case 'archive-clear':$('#archive-search').value='';$('#archive-results').innerHTML=archiveRows();$('#archive-search').focus();return;
     case 'daily-check-new':case 'daily-retry':case 'daily-reload':return loadDaily();
     case 'daily-personal':{const region=$('#personal-briefing-region');region?.focus({preventScroll:true});region?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});return;}
-    case 'daily-copy':{if(!state.daily?.edition)return;const link=editionLink(location.href,state.daily.edition.date);try{await navigator.clipboard.writeText(link);toast(tr('이 날짜의 브리핑 링크를 복사했어요.','Link to this edition copied.'));}catch{openDialog(`<h2>${tr('이 날짜의 브리핑 링크','Link to this edition')}</h2><p>${tr('아래 주소를 복사해 주세요.','Copy the address below.')}</p><input id="edition-link" aria-label="${tr('발행본 주소','Edition address')}" value="${esc(link)}" readonly>`);$('#edition-link').select();}return;}
+    case 'daily-copy':return copyDailyLink();
 
     case 'retry':return load();
         case 'explore-week':case 'personal-week':{const control=b.id==='personal-week'?'personal-period':'period';state.period='week';state.page=1;state.expanded=false;await load({keep:true});const target=$('#'+control);target?.focus({preventScroll:true});if(control==='personal-period')$('#personal-briefing-region')?.scrollIntoView({block:'start'});return;}

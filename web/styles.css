@@ -409,3 +409,14 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
 .digest-rollover:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:15px;padding:15px 18px;margin:12px 0;background:var(--tint);border:1px solid var(--line);border-radius:12px;font-size:14px;line-height:1.7}
 .digest-rollover button{flex-shrink:0;min-height:44px;font-size:13px}
 @media(max-width:760px){.digest-navigation{justify-content:flex-start}#daily-archive{margin-left:0}.archive-card{padding:17px}.edition-archive>h2{font-size:25px}.archive-card>strong{font-size:17px}.digest-rollover:not([hidden]){align-items:flex-start;flex-direction:column;gap:8px}}
+
+/* Continue a daily story without changing the reader's saved interests. */
+.digest-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+.digest-actions button{min-height:44px;font-size:12px;padding:10px 0;text-align:left}
+.digest-follow{color:var(--accent-strong);font-weight:600}
+.digest-share{color:var(--muted)}
+.digest-story.is-linked{border-radius:12px;box-shadow:inset 3px 0 0 var(--accent);background:var(--tint)}
+.explore-trail{display:flex;justify-content:space-between;align-items:center;gap:22px;padding:20px 22px;margin:0 0 24px;background:var(--tint);border:1px solid var(--line);border-radius:14px}
+.explore-trail p{font-size:13px;line-height:1.8;color:var(--muted);margin:7px 0 0;word-break:keep-all}
+.explore-trail a{flex-shrink:0;font-size:13px;color:var(--accent-strong);min-height:44px;display:flex;align-items:center}
+@media(max-width:760px){.digest-actions{gap:4px 16px}.explore-trail{padding:17px;align-items:flex-start;flex-direction:column;gap:6px}}

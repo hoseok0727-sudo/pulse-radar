@@ -19,23 +19,27 @@ export function validEditionDate(value) {
     Number.isFinite(Date.parse(value + 'T12:00:00Z')) &&
     new Date(value + 'T12:00:00Z').toISOString().slice(0, 10) === value;
 }
-export function dailyHash(date = '') {
-  return validEditionDate(date) ? '#today?date=' + date : '#today';
+export function validDailyStory(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(value);
+}
+export function dailyHash(date = '', story = '') {
+  return validEditionDate(date) ? '#today?date=' + date + (validDailyStory(story) ? '&story=' + story : '') : '#today';
 }
 export function parseRoute(hash, tabs) {
   const [name, query = ''] = String(hash || '').replace(/^#/, '').split('?');
   const tab = Object.hasOwn(tabs, name) ? name : 'today';
   const date = name === 'today' ? new URLSearchParams(query).get('date') : '';
-  return {tab, date: validEditionDate(date) ? date : ''};
+  const story = name === 'today' ? new URLSearchParams(query).get('story') : '';
+  return {tab, date: validEditionDate(date) ? date : '', ...(validEditionDate(date) && validDailyStory(story) ? {story} : {})};
 }
 export function editionNeighbors(dates, current) {
   const sorted = [...new Set((dates || []).filter(validEditionDate))].sort();
   return {previous: sorted.filter(d => d < current).at(-1) || '', next: sorted.find(d => d > current) || ''};
 }
-export function editionLink(base, date) {
+export function editionLink(base, date, story = '') {
   const url = new URL(base);
   url.search = '';
-  url.hash = dailyHash(date);
+  url.hash = dailyHash(date, story);
   return url.href;
 }
 
