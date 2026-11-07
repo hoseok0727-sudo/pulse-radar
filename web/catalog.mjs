@@ -18,3 +18,17 @@ export const CATEGORIES=Object.freeze({
   culture:['문화','Culture'],subculture:['서브컬처','Subculture'],sports:['스포츠','Sports']
 });
 export const CATEGORY_KEYS=Object.freeze(Object.keys(CATEGORIES));
+
+// Popular interests collected every day by keyword search, so a visitor's
+// interests have matching public reports even when they are not top headlines.
+// Shown as suggestion chips in settings. Region = the Google News edition used.
+export const INTEREST_PACKS=Object.freeze([
+  ['finance',[['코스피','korea'],['비트코인','korea'],['부동산','korea'],['금리','korea'],['환율','korea'],['엔비디아','korea'],['테슬라','korea'],['삼성전자','korea']]],
+  ['technology',[['인공지능','korea'],['반도체','korea'],['스마트폰','korea'],['전기차','korea'],['우주','korea']]],
+  ['policy',[['청약','korea'],['전세사기','korea'],['최저임금','korea'],['국민연금','korea'],['교육','korea']]],
+  ['society',[['날씨','korea'],['미세먼지','korea'],['저출생','korea'],['의료','korea']]],
+  ['culture',[['K팝','korea'],['넷플릭스','korea'],['영화','korea'],['드라마','korea'],['여행','korea']]],
+  ['subculture',[['애니메이션','korea'],['웹툰','korea'],['버튜버','korea'],['닌텐도','korea'],['리그 오브 레전드','korea'],['원신','korea'],['블루 아카이브','korea'],['プロセカ','japan']]],
+  ['sports',[['프로야구','korea'],['손흥민','korea'],['이강인','korea'],['K리그','korea'],['NBA','korea'],['e스포츠','korea']]],
+  ['world',[['미국 대선','korea'],['중국 경제','korea'],['일본','korea'],['우크라이나','korea'],['중동','korea']]]
+].map(([category,terms])=>Object.freeze({category,terms:Object.freeze(terms.map(([term,region])=>Object.freeze({term,region})))})));

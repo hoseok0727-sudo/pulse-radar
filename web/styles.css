@@ -420,3 +420,7 @@ dialog{padding:35px 22px 25px;width:calc(100% - 20px);max-height:94vh;border-rad
 .explore-trail p{font-size:13px;line-height:1.8;color:var(--muted);margin:7px 0 0;word-break:keep-all}
 .explore-trail a{flex-shrink:0;font-size:13px;color:var(--accent-strong);min-height:44px;display:flex;align-items:center}
 @media(max-width:760px){.digest-actions{gap:4px 16px}.explore-trail{padding:17px;align-items:flex-start;flex-direction:column;gap:6px}}
+.interest-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem}
+.interest-chip{border:1px solid var(--line,#d6d9e4);background:transparent;color:inherit;border-radius:999px;padding:.3rem .7rem;font-size:.85rem;min-height:2rem;cursor:pointer}
+.interest-chip[aria-pressed="true"]{background:#6569d9;border-color:#6569d9;color:#fff}
+.interest-chip:focus-visible{outline:2px solid #6569d9;outline-offset:2px}

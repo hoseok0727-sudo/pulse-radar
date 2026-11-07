@@ -142,6 +142,7 @@ $('#dialog').addEventListener('close',()=>{
   (restored||$('#main')).focus({preventScroll:true});
 });
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||b.disabled)return;try{
+  if(b.dataset.addKeyword!==undefined){const input=$('#keywords');if(input){const term=b.dataset.addKeyword,list=input.value.split(',').map(v=>v.trim()).filter(Boolean),i=list.indexOf(term);if(i>=0)list.splice(i,1);else if(list.length<20)list.push(term);input.value=list.join(', ');b.setAttribute('aria-pressed',String(list.includes(term)));capturePreferenceDraft();}return;}
   if(await extension?.click(b))return;
   if(b.matches('.dialog-close'))return $('#dialog').close();
   if(b.dataset.archiveDate){$('#dialog').close();location.hash=dailyHash(b.dataset.archiveDate);window.scrollTo({top:0,behavior:'instant'});return;}
