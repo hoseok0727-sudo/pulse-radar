@@ -1,7 +1,7 @@
 // Pulse Radar service worker. Network first so a new publication always wins;
 // the last successful copy is kept for offline reading. Same-origin GET only:
 // requests to a visitor's own AI provider are never intercepted or cached.
-const CACHE='pulse-radar-b42c4c020cc4';
+const CACHE='pulse-radar-d20c7ba6ac37';
 const SHELL=['./','./index.html','./public-data.json','./web/app.mjs','./web/views.mjs','./web/api.mjs','./web/access.mjs','./web/catalog.mjs','./web/daily-navigation.mjs','./web/static-store.mjs','./web/personal-ai.mjs','./web/pwa.mjs','./web/styles.css','./web/home-radar.css','./web/personal-ai.css','./web/mark.svg','./web/manifest.webmanifest','./web/icon-192.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>Promise.allSettled(SHELL.map(url=>cache.add(new Request(url,{cache:'reload'}))))).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('pulse-radar-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
